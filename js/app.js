@@ -182,6 +182,76 @@ function renderKingdom(k) {
   featureLayers.set(k.id, { poly, label });
 }
 
+/* -------------------- Édition des sommets d'un royaume -------------------- */
+let vLayer = null;              // calque des poignées
+let vEdit = null;              // { id }
+
+function startVertexEdit(id) {
+  stopVertexEdit();
+  vEdit = { id };
+  if (!vLayer) vLayer = L.layerGroup();
+  vLayer.addTo(map);
+  drawHandles();
+}
+function stopVertexEdit() {
+  vEdit = null;
+  if (vLayer) vLayer.clearLayers();
+}
+function drawHandles() {
+  if (!vEdit) return;
+  vLayer.clearLayers();
+  const k = find('kingdom', vEdit.id);
+  if (!k) return;
+  const poly = () => (featureLayers.get(k.id) || {}).poly;
+  const refresh = () => { const p = poly(); if (p) p.setLatLngs(k.points.map(pt => pxToLatLng(pt[0], pt[1]))); };
+
+  // poignées de sommet (déplaçables ; clic = supprimer)
+  k.points.forEach((pt, i) => {
+    const m = L.marker(pxToLatLng(pt[0], pt[1]), {
+      icon: L.divIcon({ className: 'vhandle', iconSize: [14, 14] }),
+      draggable: true, keyboard: false, zIndexOffset: 1000,
+    });
+    let dragged = false;
+    m.on('dragstart', () => { dragged = true; });
+    m.on('drag', (e) => { const q = latLngToPx(e.latlng).map(Math.round); k.points[i] = q; refresh(); });
+    m.on('dragend', () => { persist('kingdom', k); drawMidsOnly(); setTimeout(() => dragged = false, 50); });
+    m.on('click', (e) => {
+      L.DomEvent.stop(e);
+      if (dragged) return;
+      if (k.points.length <= 3) { showHint('Un royaume garde au moins 3 points.'); setTimeout(hideHint, 1600); return; }
+      k.points.splice(i, 1); persist('kingdom', k); rerenderKingdom(k); drawHandles();
+    });
+    vLayer.addLayer(m);
+  });
+  drawMidsOnly();
+}
+function drawMidsOnly() {
+  if (!vEdit) return;
+  // enlève les anciens milieux
+  vLayer.getLayers().filter(l => l._isMid).forEach(l => vLayer.removeLayer(l));
+  const k = find('kingdom', vEdit.id); if (!k) return;
+  k.points.forEach((pt, i) => {
+    const nxt = k.points[(i + 1) % k.points.length];
+    const mid = [Math.round((pt[0] + nxt[0]) / 2), Math.round((pt[1] + nxt[1]) / 2)];
+    const m = L.marker(pxToLatLng(mid[0], mid[1]), {
+      icon: L.divIcon({ className: 'vhandle mid', iconSize: [12, 12] }),
+      keyboard: false, zIndexOffset: 900,
+    });
+    m._isMid = true;
+    m.on('click', (e) => {
+      L.DomEvent.stop(e);
+      k.points.splice(i + 1, 0, mid); persist('kingdom', k); rerenderKingdom(k); drawHandles();
+    });
+    vLayer.addLayer(m);
+  });
+}
+// redessine un seul royaume (poly + label) sans tout reconstruire
+function rerenderKingdom(k) {
+  const f = featureLayers.get(k.id);
+  if (f) { layers.zones.removeLayer(f.poly); layers.labels.removeLayer(f.label); }
+  renderKingdom(k);
+}
+
 // Crée (une fois) un motif de hachures diagonales pour une couleur, renvoie son id
 function ensureHatch(color) {
   const id = 'hatch_' + color.replace(/[^a-z0-9]/gi, '');
@@ -393,10 +463,16 @@ function openEditPanel(kind, id) {
   else colorRow.style.display = 'none';
   document.getElementById('fName').focus();
   document.getElementById('fName').select();
+  // édition des sommets pour un royaume
+  if (kind === 'kingdom' && editMode) {
+    startVertexEdit(id);
+    showHint('Glisse un point pour le déplacer · clic sur un point = supprimer · clic sur un point creux = ajouter');
+  } else stopVertexEdit();
 }
 function closeEditPanel() {
   document.getElementById('editPanel').classList.add('hidden');
   selected = null;
+  stopVertexEdit();
 }
 function saveEditPanel() {
   if (!selected) return;

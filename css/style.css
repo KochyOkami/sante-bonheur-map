@@ -146,6 +146,18 @@ body {
 .kingdom-label::before { display: none; }
 /* Mode parchemin : fond crème hors-carte + halo adapté */
 body.parchment .leaflet-container { background: #f0e8da; }
+
+/* Poignées d'édition des sommets */
+.vhandle {
+  background: #fff; border: 2px solid #222; border-radius: 50%;
+  box-sizing: border-box; cursor: move;
+  box-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+.vhandle:hover { background: #ffd24e; }
+.vhandle.mid {
+  background: rgba(255,255,255,.55); border-style: dashed; cursor: copy;
+}
+.vhandle.mid:hover { background: #8ee66b; }
 .place-label {
   background: rgba(15,17,21,.82); border: 1px solid var(--border);
   color: var(--text); font-size: 12px; padding: 2px 7px; border-radius: 6px;
