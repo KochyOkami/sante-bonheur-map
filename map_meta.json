@@ -3,7 +3,7 @@
   "height": 8000,
   "tileSize": 256,
   "maxNativeZoom": 6,
-  "version": 3,
+  "version": 4,
   "world": {
     "originX": -4000,
     "originZ": -3951,
