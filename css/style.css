@@ -137,11 +137,15 @@ body {
 /* ---------- Leaflet label tweaks ---------- */
 .kingdom-label {
   background: none; border: none; box-shadow: none;
-  color: #fff; font-weight: 700; font-size: 14px;
-  text-shadow: 0 0 4px #000, 0 0 6px #000, 1px 1px 2px #000;
-  letter-spacing: .03em; text-transform: uppercase;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700; font-style: italic; font-size: 16px;
+  letter-spacing: .02em; white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff, 0 1px 1px rgba(255,255,255,.9);
 }
+.kingdom-label span { color: inherit; }
 .kingdom-label::before { display: none; }
+/* Mode parchemin : fond crème hors-carte + halo adapté */
+body.parchment .leaflet-container { background: #f0e8da; }
 .place-label {
   background: rgba(15,17,21,.82); border: 1px solid var(--border);
   color: var(--text); font-size: 12px; padding: 2px 7px; border-radius: 6px;

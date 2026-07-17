@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Carte du Monde — Explorateur</title>
   <link rel="stylesheet" href="vendor/leaflet.css" />
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
 </head>
 <body>
   <div id="app">
@@ -55,6 +55,7 @@
 
     <!-- Barre d'outils éditeur -->
     <div id="toolbar">
+      <button id="btnBasemap" class="tool" title="Basculer entre fond satellite et parchemin">🗺️ Parchemin</button>
       <button id="btnEdit" class="tool" title="Activer/désactiver le mode éditeur">✏️ Mode éditeur</button>
       <div class="tool-group hidden" id="editTools">
         <button id="btnAddKingdom" class="tool" title="Dessiner une zone de royaume">➕ Royaume</button>
@@ -79,13 +80,16 @@
 
     <!-- Aide -->
     <div id="hint" class="hint hidden"></div>
+
+    <!-- Motifs de hachures (référencés par les zones) -->
+    <svg id="hatchDefs" width="0" height="0" style="position:absolute"><defs></defs></svg>
   </div>
 
   <script src="vendor/leaflet.js"></script>
   <!-- Supabase (édition partagée en ligne). Échoue silencieusement hors-ligne -> mode local. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=5"></script>
-  <script src="js/db.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/config.js?v=6"></script>
+  <script src="js/db.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>

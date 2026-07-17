@@ -17,7 +17,8 @@ const PALETTE = ['#e63946','#f4a261','#e9c46a','#2a9d8f','#4ea1ff','#9b5de5','#f
 // Chemin explicite des icônes de marqueur (site autonome)
 L.Icon.Default.imagePath = 'vendor/images/';
 
-let map, tileLayer, worldBounds, NZ;
+let map, tileLayer, tileParchment, worldBounds, NZ;
+let basemap = 'satellite';
 let data = { kingdoms: [], places: [] };
 const layers = { zones: null, labels: null, places: null };
 const featureLayers = new Map();   // id -> leaflet layer
@@ -80,15 +81,16 @@ async function init() {
   worldBounds = L.latLngBounds(pxToLatLng(0, 0), pxToLatLng(CONFIG.width, CONFIG.height));
 
   const blackTile = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-  tileLayer = L.tileLayer(CONFIG.tilesUrl + '?v=' + CONFIG.tileVersion, {
-    minZoom: 0,
-    maxNativeZoom: NZ,
-    maxZoom: NZ + CONFIG.overZoom,
-    tileSize: CONFIG.tileSize,
-    noWrap: true,
-    bounds: worldBounds,
-    errorTileUrl: blackTile,
-  }).addTo(map);
+  // tuile crème pour les bords hors-map en mode parchemin
+  const creamTile = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1'%20height='1'%3E%3Crect%20width='1'%20height='1'%20fill='%23f0e8da'/%3E%3C/svg%3E";
+  const tileOpts = {
+    minZoom: 0, maxNativeZoom: NZ, maxZoom: NZ + CONFIG.overZoom,
+    tileSize: CONFIG.tileSize, noWrap: true, bounds: worldBounds,
+  };
+  tileLayer = L.tileLayer(CONFIG.tilesUrl + '?v=' + CONFIG.tileVersion,
+    Object.assign({}, tileOpts, { errorTileUrl: blackTile })).addTo(map);
+  tileParchment = L.tileLayer('tiles-parchment/{z}/{x}/{y}.png?v=' + CONFIG.tileVersion,
+    Object.assign({}, tileOpts, { errorTileUrl: creamTile }));
 
   map.fitBounds(worldBounds);
   map.setMaxBounds(worldBounds.pad(0.35));
@@ -122,6 +124,12 @@ async function init() {
 
   bindUI();
 
+  // Restaure le fond de carte choisi précédemment
+  try {
+    const saved = localStorage.getItem('worldmap.basemap');
+    if (saved === 'parchment') setBasemap('parchment');
+  } catch (e) {}
+
   // Lecture des coordonnées
   const coordsEl = document.getElementById('coords');
   map.on('mousemove', (e) => {
@@ -148,7 +156,7 @@ function renderAll() {
 function renderKingdom(k) {
   const latlngs = k.points.map(p => pxToLatLng(p[0], p[1]));
   const poly = L.polygon(latlngs, {
-    color: k.color, weight: 2, fillColor: k.color, fillOpacity: 0.18,
+    color: k.color, weight: 2.5, fillColor: k.color, fillOpacity: 1,
     bubblingMouseEvents: true,
   });
   poly.on('click', (e) => {
@@ -157,14 +165,45 @@ function renderKingdom(k) {
     else L.popup().setLatLng(e.latlng).setContent(popupHtml(k.name, k.desc)).openOn(map);
   });
   poly.addTo(layers.zones);
+  // remplissage hachuré (style carte politique)
+  const pid = ensureHatch(k.color);
+  if (poly._path) poly._path.setAttribute('fill', 'url(#' + pid + ')');
 
   const label = L.marker(poly.getBounds().getCenter(), {
-    icon: L.divIcon({ className: 'kingdom-label', html: escapeHtml(k.name), iconSize: null }),
+    icon: L.divIcon({
+      className: 'kingdom-label',
+      html: '<span style="color:' + k.color + '">' + escapeHtml(k.name) + '</span>',
+      iconSize: null,
+    }),
     interactive: false,
   });
   label.addTo(layers.labels);
 
   featureLayers.set(k.id, { poly, label });
+}
+
+// Crée (une fois) un motif de hachures diagonales pour une couleur, renvoie son id
+function ensureHatch(color) {
+  const id = 'hatch_' + color.replace(/[^a-z0-9]/gi, '');
+  if (document.getElementById(id)) return id;
+  const defs = document.getElementById('hatchDefs').querySelector('defs');
+  const ns = 'http://www.w3.org/2000/svg';
+  const pat = document.createElementNS(ns, 'pattern');
+  pat.setAttribute('id', id);
+  pat.setAttribute('patternUnits', 'userSpaceOnUse');
+  pat.setAttribute('width', '9'); pat.setAttribute('height', '9');
+  pat.setAttribute('patternTransform', 'rotate(45)');
+  const rect = document.createElementNS(ns, 'rect');
+  rect.setAttribute('width', '9'); rect.setAttribute('height', '9');
+  rect.setAttribute('fill', color); rect.setAttribute('fill-opacity', '0.16');
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', '0'); line.setAttribute('y1', '0');
+  line.setAttribute('x2', '0'); line.setAttribute('y2', '9');
+  line.setAttribute('stroke', color); line.setAttribute('stroke-width', '3');
+  line.setAttribute('stroke-opacity', '0.5');
+  pat.appendChild(rect); pat.appendChild(line);
+  defs.appendChild(pat);
+  return id;
 }
 
 function renderPlace(p) {
@@ -223,6 +262,24 @@ function renderSidebar() {
 function setStatus(txt) {
   const el = document.getElementById('status');
   if (el) el.textContent = txt;
+}
+
+/* -------------------- Fond de carte (satellite / parchemin) -------------------- */
+function setBasemap(name) {
+  basemap = name;
+  const btn = document.getElementById('btnBasemap');
+  if (name === 'parchment') {
+    map.removeLayer(tileLayer);
+    tileParchment.addTo(map).bringToBack();
+    document.body.classList.add('parchment');
+    if (btn) btn.textContent = '🛰️ Satellite';
+  } else {
+    map.removeLayer(tileParchment);
+    tileLayer.addTo(map).bringToBack();
+    document.body.classList.remove('parchment');
+    if (btn) btn.textContent = '🗺️ Parchemin';
+  }
+  try { localStorage.setItem('worldmap.basemap', name); } catch (e) {}
 }
 
 /* -------------------- Verrou mot de passe -------------------- */
@@ -397,6 +454,7 @@ function hideHint() { document.getElementById('hint').classList.add('hidden'); }
 
 /* -------------------- UI bindings -------------------- */
 function bindUI() {
+  document.getElementById('btnBasemap').onclick = () => setBasemap(basemap === 'satellite' ? 'parchment' : 'satellite');
   document.getElementById('btnEdit').onclick = () => setEditMode(!editMode);
   document.getElementById('btnAddKingdom').onclick = startDrawKingdom;
   document.getElementById('btnAddPlace').onclick = startAddPlace;
