@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur de hash — mot de passe d'édition</title>
+<style>
+  body { font-family: system-ui, "Segoe UI", sans-serif; background:#0f1115; color:#e7e9ee;
+         display:flex; min-height:100vh; align-items:center; justify-content:center; margin:0; }
+  .card { background:#171a21; border:1px solid #2a2f3a; border-radius:14px; padding:26px; width:min(460px,92vw); }
+  h1 { font-size:18px; margin:0 0 6px; }
+  p { color:#9aa2b1; font-size:13px; margin:0 0 16px; }
+  input { width:100%; box-sizing:border-box; background:#1e222b; color:#e7e9ee; border:1px solid #2a2f3a;
+          border-radius:8px; padding:10px 12px; font-size:14px; }
+  .out { margin-top:16px; }
+  label { font-size:12px; color:#9aa2b1; }
+  code { display:block; word-break:break-all; background:#1e222b; border:1px solid #2a2f3a; border-radius:8px;
+         padding:10px 12px; margin-top:6px; font-size:13px; color:#4ea1ff; }
+  button { margin-top:12px; background:#2b6fc7; color:#fff; border:1px solid #4ea1ff; border-radius:8px;
+           padding:9px 14px; font-size:13px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔑 Hash du mot de passe d'édition</h1>
+    <p>Tape le mot de passe que tu veux partager à tes amis. Copie le hash obtenu dans
+       <b>js/config.js</b> → <b>editPasswordHash</b>. Le mot de passe en clair n'est jamais stocké.</p>
+    <input id="pw" type="text" placeholder="mot de passe d'édition" autofocus>
+    <div class="out">
+      <label>Hash SHA-256 à coller :</label>
+      <code id="hash">—</code>
+      <button id="copy">Copier le hash</button>
+    </div>
+  </div>
+<script>
+  const pw = document.getElementById('pw'), out = document.getElementById('hash');
+  async function upd() {
+    if (!pw.value) { out.textContent = '—'; return; }
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw.value));
+    out.textContent = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  pw.addEventListener('input', upd);
+  document.getElementById('copy').onclick = () => {
+    if (out.textContent !== '—') navigator.clipboard.writeText(out.textContent);
+  };
+</script>
+</body>
+</html>

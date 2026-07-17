@@ -1,0 +1,14 @@
+{
+  "width": 8000,
+  "height": 8000,
+  "tileSize": 256,
+  "maxNativeZoom": 6,
+  "version": 3,
+  "world": {
+    "originX": -4000,
+    "originZ": -4000,
+    "blocksPerPixelX": 1.0,
+    "blocksPerPixelZ": 1.0,
+    "note": "Coordonnees Minecraft exactes (1 px = 1 bloc). Fenetre -4000..4000."
+  }
+}

@@ -1,0 +1,13 @@
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Captures d'écran de debug déposées ici
+Screenshot*.png
+screenshot*.png
+
+# Rien d'autre : tiles/, vendor/, js/config.js SONT versionnés
+# (config.js contient la clé publique + le hash du mot de passe, prévus pour être publics)

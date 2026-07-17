@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Carte du Monde — Explorateur</title>
+  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css?v=5" />
+</head>
+<body>
+  <div id="app">
+    <!-- Barre latérale -->
+    <aside id="sidebar">
+      <header class="side-head">
+        <h1>🗺️ Carte du Monde</h1>
+        <p class="sub">Explorateur & éditeur de royaumes</p>
+      </header>
+
+      <div class="side-section">
+        <div class="side-title">
+          <span>Royaumes</span>
+          <span class="count" id="kingdomCount">0</span>
+        </div>
+        <ul id="kingdomList" class="list"></ul>
+      </div>
+
+      <div class="side-section">
+        <div class="side-title">
+          <span>Lieux</span>
+          <span class="count" id="placeCount">0</span>
+        </div>
+        <ul id="placeList" class="list"></ul>
+      </div>
+
+      <div class="side-section toggles">
+        <label><input type="checkbox" id="toggleZones" checked /> Afficher les zones</label>
+        <label><input type="checkbox" id="toggleLabels" checked /> Afficher les noms</label>
+        <label><input type="checkbox" id="togglePlaces" checked /> Afficher les lieux</label>
+      </div>
+
+      <div class="side-section data-actions">
+        <button id="btnExport" class="btn ghost">⬇️ Exporter</button>
+        <button id="btnImport" class="btn ghost">⬆️ Importer</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+      </div>
+
+      <footer class="side-foot">
+        <div id="status" class="status">…</div>
+        <span id="coords">—</span>
+      </footer>
+    </aside>
+
+    <!-- Carte -->
+    <main id="map"></main>
+
+    <!-- Barre d'outils éditeur -->
+    <div id="toolbar">
+      <button id="btnEdit" class="tool" title="Activer/désactiver le mode éditeur">✏️ Mode éditeur</button>
+      <div class="tool-group hidden" id="editTools">
+        <button id="btnAddKingdom" class="tool" title="Dessiner une zone de royaume">➕ Royaume</button>
+        <button id="btnAddPlace" class="tool" title="Placer un lieu">📍 Lieu</button>
+        <button id="btnFinish" class="tool primary hidden" title="Terminer le tracé">✔️ Terminer</button>
+        <button id="btnCancel" class="tool danger hidden" title="Annuler">✖️ Annuler</button>
+      </div>
+    </div>
+
+    <!-- Panneau d'édition d'un élément -->
+    <div id="editPanel" class="panel hidden">
+      <h3 id="editPanelTitle">Éditer</h3>
+      <label>Nom<input type="text" id="fName" /></label>
+      <label id="colorRow">Couleur<input type="color" id="fColor" value="#e63946" /></label>
+      <label>Description<textarea id="fDesc" rows="3"></textarea></label>
+      <div class="panel-actions">
+        <button id="fSave" class="btn primary">Enregistrer</button>
+        <button id="fDelete" class="btn danger">Supprimer</button>
+        <button id="fClose" class="btn ghost">Fermer</button>
+      </div>
+    </div>
+
+    <!-- Aide -->
+    <div id="hint" class="hint hidden"></div>
+  </div>
+
+  <script src="vendor/leaflet.js"></script>
+  <!-- Supabase (édition partagée en ligne). Échoue silencieusement hors-ligne -> mode local. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/db.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
+</body>
+</html>

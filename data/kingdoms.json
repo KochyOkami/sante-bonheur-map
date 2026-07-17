@@ -1,0 +1,22 @@
+{
+  "kingdoms": [
+    {
+      "id": "ex-nord",
+      "name": "Royaume du Nord",
+      "color": "#4ea1ff",
+      "desc": "Exemple — supprime-moi ou modifie-moi dans le mode éditeur.",
+      "points": [[3600, 1400], [5400, 1300], [5800, 3100], [4200, 3600], [3200, 2800]]
+    },
+    {
+      "id": "ex-glace",
+      "name": "Terres Gelées",
+      "color": "#9b5de5",
+      "desc": "Exemple de deuxième royaume (autour de la calotte glacée).",
+      "points": [[3000, 3600], [4900, 3700], [5200, 5400], [3600, 6200], [2600, 5000]]
+    }
+  ],
+  "places": [
+    { "id": "ex-cap", "name": "Capitale", "desc": "Exemple de lieu.", "px": 4300, "py": 2400 },
+    { "id": "ex-glacier", "name": "Glacier central", "desc": "", "px": 3900, "py": 4300 }
+  ]
+}
