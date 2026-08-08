@@ -37,6 +37,20 @@ const DYNMAP = {
   maptoworld: [0.044194173824159216, -0.05103103630798288, 0.408248290463863,
                0.0, -3.469446951953614e-18, 1.0000000000000002,
                -0.04419417382415922, -0.05103103630798287, 0.40824829046386296],
+
+  /* Emprise réelle des tuiles rendues, en unités latlng.
+     Surtout NE PAS la déduire du carré du site (-5000..5000) : la vue iso
+     est un losange qui déborde largement de ce carré, et le rendu Dynmap
+     va jusqu'à ±5120 blocs. Des bornes trop petites rognent la carte
+     (constaté : coupée à gauche et en haut, noir au dézoom).
+     Relevé sur le serveur :
+       ls dynmap/web/tiles/world/iso | awk -F_ '{...min/max...}'
+       -> scaledx -32..28, scaledy -25..32
+     Conversion : un dossier "sx_sy" couvre les tuiles 32*s..32*s+31,
+     et lng = fichierX / 2, lat = fichierY / 2 (quel que soit le zoom).
+     Mieux vaut sur-estimer : trop large = on peut se promener dans du
+     noir ; trop étroit = on ampute la carte. */
+  tileBounds: { lngMin: -512, lngMax: 464, latMin: -400, latMax: 528 },
 };
 
 // Chemin explicite des icônes de marqueur (site autonome)
@@ -106,8 +120,16 @@ function latLngToPx(ll) {
   return [p.x, p.y];
 }
 
-// Boîte englobante de la carte dans l'espace courant (4 coins : en iso le carré est tourné)
+// Emprise du fond iso : celle des tuiles réellement rendues, pas celle du
+// carré du site (le losange iso en déborde — voir DYNMAP.tileBounds).
+function isoBounds() {
+  const b = DYNMAP.tileBounds;
+  return L.latLngBounds(L.latLng(b.latMin, b.lngMin), L.latLng(b.latMax, b.lngMax));
+}
+
+// Boîte englobante de la carte dans l'espace courant
 function computeWorldBounds() {
+  if (basemap === 'iso') return isoBounds();
   const corners = [[0, 0], [CONFIG.width, 0], [CONFIG.width, CONFIG.height], [0, CONFIG.height]];
   return L.latLngBounds(corners.map(c => pxToLatLng(c[0], c[1])));
 }
@@ -203,15 +225,11 @@ async function init() {
   // sans dynmapUrl configurée, le bouton ne propose que satellite/parchemin).
   const dynUrl = ((window.MAP_CONFIG || {}).dynmapUrl || '').replace(/\/+$/, '');
   if (dynUrl) {
-    // Emprise de la carte projetée en iso : évite de demander des tuiles
-    // très au-delà de la zone rendue (Dynmap est borné à +/-5120 blocs).
-    const isoCorners = [[0, 0], [CONFIG.width, 0], [CONFIG.width, CONFIG.height], [0, CONFIG.height]]
-      .map(c => { const w = pxToWorldExact(c[0], c[1]); return worldToIsoLatLng(w.x, w.z); });
     tileIso = new DynmapTileLayer('', {
       baseUrl: dynUrl,
       minZoom: 0, maxNativeZoom: DYNMAP.mapzoomout, maxZoom: DYNMAP.maxZoom,
       tileSize: DYNMAP.tileSize, noWrap: true,
-      bounds: L.latLngBounds(isoCorners),
+      bounds: isoBounds(),
       errorTileUrl: blackTile,     // zones non rendues : Dynmap renvoie 404
       keepBuffer: 4,
       // La protection anti-hotlink de Cloudflare renvoie 403 (error code 1011)
