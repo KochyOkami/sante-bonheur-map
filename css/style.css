@@ -146,6 +146,8 @@ body {
 .kingdom-label::before { display: none; }
 /* Mode parchemin : fond crème hors-carte + halo adapté */
 body.parchment .leaflet-container { background: #f0e8da; }
+/* Mode isométrique : fond noir, comme le client Dynmap */
+body.iso .leaflet-container { background: #000; }
 
 /* Poignées d'édition des sommets */
 .vhandle {

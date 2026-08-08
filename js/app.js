@@ -14,10 +14,36 @@ const CONFIG = {
 
 const PALETTE = ['#e63946','#f4a261','#e9c46a','#2a9d8f','#4ea1ff','#9b5de5','#f15bb5','#00bbf9','#80b918','#ff7b00'];
 
+/* ------------------------------------------------------------
+   Carte isométrique Dynmap (servie en direct par le serveur MC).
+   Ces valeurs sont recopiées telles quelles depuis /up/configuration
+   du serveur Dynmap (monde "world", carte "iso", perspective
+   iso_SE_60_hires). Si la config Dynmap change côté serveur, il faut
+   les remettre à jour ici, sinon les tuiles se décalent.
+   ------------------------------------------------------------ */
+const DYNMAP = {
+  prefix: 'iso',
+  world: 'world',
+  fmt: 'jpg',
+  tileSize: 128,          // 128 << tilescale
+  tilescale: 0,
+  mapzoomin: 1,
+  mapzoomout: 8,
+  maxZoom: 9,             // mapzoomin + mapzoomout
+  markerY: 64,            // hauteur supposée pour projeter les tracés (sealevel = 63)
+  worldtomap: [11.31370849898476, 0.0, -11.313708498984761,
+               -9.797958971132713, 7.999999999999999, -9.797958971132712,
+               -4.8074067159589095e-17, 0.9999999999999999, -4.8074067159589095e-17],
+  maptoworld: [0.044194173824159216, -0.05103103630798288, 0.408248290463863,
+               0.0, -3.469446951953614e-18, 1.0000000000000002,
+               -0.04419417382415922, -0.05103103630798287, 0.40824829046386296],
+};
+
 // Chemin explicite des icônes de marqueur (site autonome)
 L.Icon.Default.imagePath = 'vendor/images/';
 
-let map, tileLayer, tileParchment, worldBounds, NZ;
+let map, tileLayer, tileParchment, tileIso, worldBounds, NZ;
+let ISO_DZ = 1.5;          // écart de zoom entre l'espace satellite et l'espace iso (calculé au démarrage)
 let basemap = 'satellite';
 let data = { kingdoms: [], places: [] };
 const layers = { zones: null, labels: null, places: null };
@@ -27,16 +53,72 @@ let editMode = false;
 let drawing = null;                 // { kind:'kingdom', latlngs:[], markers:[], line, poly }
 let selected = null;                // { kind, id }
 
-/* -------------------- Coordonnées -------------------- */
-// pixel image (résolution native) <-> latlng CRS.Simple
-function pxToLatLng(px, py) { return map.unproject([px, py], NZ); }
-function latLngToPx(ll) { const p = map.project(ll, NZ); return [p.x, p.y]; }
-function pxToWorld(px, py) {
+/* -------------------- Coordonnées --------------------
+   Les éléments sont stockés en pixels image (px, py). Selon le fond
+   affiché, ces pixels se projettent dans deux espaces latlng différents :
+   - satellite / parchemin : vue du dessus, 1 px = 1 bloc ;
+   - iso : projection isométrique de Dynmap.
+   Tout passe par pxToLatLng / latLngToPx, donc changer de fond suffit
+   à replacer correctement royaumes et lieux.                            */
+
+// pixel image <-> coordonnées Minecraft (sans arrondi : doit rester réversible)
+function pxToWorldExact(px, py) {
   return {
-    x: Math.round(CONFIG.world.originX + px * CONFIG.world.blocksPerPixelX),
-    z: Math.round(CONFIG.world.originZ + py * CONFIG.world.blocksPerPixelZ),
+    x: CONFIG.world.originX + px * CONFIG.world.blocksPerPixelX,
+    z: CONFIG.world.originZ + py * CONFIG.world.blocksPerPixelZ,
   };
 }
+function worldToPx(x, z) {
+  return [
+    (x - CONFIG.world.originX) / CONFIG.world.blocksPerPixelX,
+    (z - CONFIG.world.originZ) / CONFIG.world.blocksPerPixelZ,
+  ];
+}
+function pxToWorld(px, py) {
+  const w = pxToWorldExact(px, py);
+  return { x: Math.round(w.x), z: Math.round(w.z) };
+}
+
+// Projection isométrique Dynmap (transcrite de web/js/hdmap.js : HDProjection)
+function worldToIsoLatLng(x, z, y) {
+  const w = DYNMAP.worldtomap, s = 1 << DYNMAP.mapzoomout;
+  if (y == null) y = DYNMAP.markerY;
+  const lat = w[3] * x + w[4] * y + w[5] * z;
+  const lng = w[0] * x + w[1] * y + w[2] * z;
+  return L.latLng(-(((128 << DYNMAP.tilescale) - lat) / s), lng / s);
+}
+function isoLatLngToWorld(ll, y) {
+  const p = DYNMAP.maptoworld, s = 1 << DYNMAP.mapzoomout;
+  if (y == null) y = DYNMAP.markerY;
+  const lat = (128 << DYNMAP.tilescale) + ll.lat * s;
+  const lng = ll.lng * s;
+  return { x: p[0] * lng + p[1] * lat + p[2] * y, z: p[6] * lng + p[7] * lat + p[8] * y };
+}
+
+// pixel image (résolution native) <-> latlng CRS.Simple, selon le fond courant
+function pxToLatLng(px, py) {
+  if (basemap === 'iso') { const w = pxToWorldExact(px, py); return worldToIsoLatLng(w.x, w.z); }
+  return map.unproject([px, py], NZ);
+}
+function latLngToPx(ll) {
+  if (basemap === 'iso') { const w = isoLatLngToWorld(ll); return worldToPx(w.x, w.z); }
+  const p = map.project(ll, NZ);
+  return [p.x, p.y];
+}
+
+// Boîte englobante de la carte dans l'espace courant (4 coins : en iso le carré est tourné)
+function computeWorldBounds() {
+  const corners = [[0, 0], [CONFIG.width, 0], [CONFIG.width, CONFIG.height], [0, CONFIG.height]];
+  return L.latLngBounds(corners.map(c => pxToLatLng(c[0], c[1])));
+}
+
+// Écart de zoom à appliquer en passant d'un espace à l'autre (l'iso est ~2,8x plus grand)
+function zoomDelta(from, to) {
+  return (to === 'iso' ? -ISO_DZ : 0) - (from === 'iso' ? -ISO_DZ : 0);
+}
+function maxZoomFor(name) { return name === 'iso' ? DYNMAP.maxZoom : NZ + CONFIG.overZoom; }
+// Zoom de confort quand on centre sur un élément
+function focusZoom() { return basemap === 'iso' ? Math.round(NZ - ISO_DZ) : NZ; }
 
 /* -------------------- Persistance (cloud + repli local) -------------------- */
 const DB = window.MapDB;                 // fourni par db.js
@@ -53,6 +135,25 @@ function persistRemove(id) {
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+/* -------------------- Couche de tuiles Dynmap --------------------
+   Dynmap ne sert pas des tuiles {z}/{x}/{y} classiques : le nom du
+   fichier est calculé par hdmap.js (getTileName + getTileInfo). On
+   reproduit exactement ce calcul, sinon rien ne s'affiche.          */
+const DynmapTileLayer = L.TileLayer.extend({
+  getTileUrl: function (coords) {
+    const izoom = DYNMAP.maxZoom - coords.z;                 // options.zoomReverse de Dynmap
+    const zoomoutlevel = Math.max(0, izoom - DYNMAP.mapzoomin);
+    const scale = 1 << zoomoutlevel;
+    const x = scale * coords.x;
+    const scaledx = x >> 5;                                  // calculé AVANT l'inversion (comme Dynmap)
+    const y = -(scale * coords.y);                           // Y inversé sur les cartes HD
+    const scaledy = y >> 5;
+    const zp = zoomoutlevel === 0 ? '' : 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'.substr(0, zoomoutlevel) + '_';
+    return this.options.baseUrl + '/tiles/' + DYNMAP.world + '/' + DYNMAP.prefix +
+           '/' + scaledx + '_' + scaledy + '/' + zp + x + '_' + y + '.' + DYNMAP.fmt;
+  },
+});
+
 /* -------------------- Init carte -------------------- */
 async function init() {
   try {
@@ -66,6 +167,12 @@ async function init() {
   } catch (e) { console.warn('map_meta.json introuvable, valeurs par défaut utilisées'); }
 
   NZ = CONFIG.maxNativeZoom;
+
+  // Écart d'échelle entre les deux espaces : combien d'unités latlng vaut un bloc
+  // dans chacun. L'espace iso est ~2,83x plus grand, soit 1,5 niveau de zoom.
+  const isoUnitPerBlock = Math.abs(DYNMAP.worldtomap[0]) / (1 << DYNMAP.mapzoomout);
+  const satUnitPerBlock = (1 / CONFIG.world.blocksPerPixelX) / (1 << NZ);
+  ISO_DZ = Math.log2(isoUnitPerBlock / satUnitPerBlock);
 
   map = L.map('map', {
     crs: L.CRS.Simple,
@@ -91,6 +198,24 @@ async function init() {
     Object.assign({}, tileOpts, { errorTileUrl: blackTile })).addTo(map);
   tileParchment = L.tileLayer('tiles-parchment/{z}/{x}/{y}.png?v=' + CONFIG.tileVersion,
     Object.assign({}, tileOpts, { errorTileUrl: creamTile }));
+
+  // Fond isométrique servi en direct par le serveur Minecraft (facultatif :
+  // sans dynmapUrl configurée, le bouton ne propose que satellite/parchemin).
+  const dynUrl = ((window.MAP_CONFIG || {}).dynmapUrl || '').replace(/\/+$/, '');
+  if (dynUrl) {
+    // Emprise de la carte projetée en iso : évite de demander des tuiles
+    // très au-delà de la zone rendue (Dynmap est borné à +/-5120 blocs).
+    const isoCorners = [[0, 0], [CONFIG.width, 0], [CONFIG.width, CONFIG.height], [0, CONFIG.height]]
+      .map(c => { const w = pxToWorldExact(c[0], c[1]); return worldToIsoLatLng(w.x, w.z); });
+    tileIso = new DynmapTileLayer('', {
+      baseUrl: dynUrl,
+      minZoom: 0, maxNativeZoom: DYNMAP.mapzoomout, maxZoom: DYNMAP.maxZoom,
+      tileSize: DYNMAP.tileSize, noWrap: true,
+      bounds: L.latLngBounds(isoCorners),
+      errorTileUrl: blackTile,     // zones non rendues : Dynmap renvoie 404
+      keepBuffer: 4,
+    });
+  }
 
   map.fitBounds(worldBounds);
   map.setMaxBounds(worldBounds.pad(0.35));
@@ -127,7 +252,7 @@ async function init() {
   // Restaure le fond de carte choisi précédemment
   try {
     const saved = localStorage.getItem('worldmap.basemap');
-    if (saved === 'parchment') setBasemap('parchment');
+    if (saved && saved !== 'satellite' && basemapCycle().includes(saved)) setBasemap(saved);
   } catch (e) {}
 
   // Lecture des coordonnées
@@ -309,7 +434,7 @@ function renderSidebar() {
     li.innerHTML = `<span class="swatch" style="background:${k.color}"></span><span class="name">${escapeHtml(k.name)}</span>`;
     li.onclick = () => {
       const f = featureLayers.get(k.id);
-      if (f) map.flyToBounds(f.poly.getBounds(), { maxZoom: NZ, padding: [40, 40] });
+      if (f) map.flyToBounds(f.poly.getBounds(), { maxZoom: focusZoom(), padding: [40, 40] });
       if (editMode) openEditPanel('kingdom', k.id);
     };
     kl.appendChild(li);
@@ -321,7 +446,7 @@ function renderSidebar() {
     const li = document.createElement('li');
     li.innerHTML = `<span class="pin">📍</span><span class="name">${escapeHtml(p.name)}</span>`;
     li.onclick = () => {
-      map.flyTo(pxToLatLng(p.px, p.py), NZ);
+      map.flyTo(pxToLatLng(p.px, p.py), focusZoom());
       if (editMode) openEditPanel('place', p.id);
     };
     pl.appendChild(li);
@@ -334,21 +459,56 @@ function setStatus(txt) {
   if (el) el.textContent = txt;
 }
 
-/* -------------------- Fond de carte (satellite / parchemin) -------------------- */
+/* -------------------- Fond de carte (satellite / parchemin / iso) -------------------- */
+const BASEMAP_LABEL = {
+  satellite: '🛰️ Satellite',
+  parchment: '🗺️ Parchemin',
+  iso: '⛰️ Isométrique',
+};
+// Fonds proposés par le bouton (l'iso n'apparaît que si dynmapUrl est configurée)
+function basemapCycle() {
+  return ['satellite', 'parchment'].concat(tileIso ? ['iso'] : []);
+}
+function nextBasemap() {
+  const cyc = basemapCycle();
+  return cyc[(cyc.indexOf(basemap) + 1) % cyc.length];
+}
+
 function setBasemap(name) {
+  if (name === 'iso' && !tileIso) name = 'satellite';
+  const from = basemap;
+  const keepZoom = map.getZoom();
+  // On retient la position courante en pixels image : les deux fonds n'ont pas
+  // le même espace latlng, un simple setView(getCenter()) sauterait ailleurs.
+  const keep = latLngToPx(map.getCenter());
+
   basemap = name;
+  stopVertexEdit();
+
+  [tileLayer, tileParchment, tileIso].forEach(l => { if (l && map.hasLayer(l)) map.removeLayer(l); });
+  const layer = name === 'iso' ? tileIso : (name === 'parchment' ? tileParchment : tileLayer);
+  layer.addTo(map).bringToBack();
+
+  document.body.classList.toggle('parchment', name === 'parchment');
+  document.body.classList.toggle('iso', name === 'iso');
+
+  // Changement d'espace de coordonnées : bornes, zoom max et recentrage
+  map.setMaxBounds(null);
+  map.setMaxZoom(maxZoomFor(name));
+  worldBounds = computeWorldBounds();
+  const z = Math.max(0, Math.min(maxZoomFor(name), Math.round(keepZoom + zoomDelta(from, name))));
+  map.setView(pxToLatLng(keep[0], keep[1]), z, { animate: false });
+  map.setMaxBounds(worldBounds.pad(0.35));
+
   const btn = document.getElementById('btnBasemap');
-  if (name === 'parchment') {
-    map.removeLayer(tileLayer);
-    tileParchment.addTo(map).bringToBack();
-    document.body.classList.add('parchment');
-    if (btn) btn.textContent = '🛰️ Satellite';
-  } else {
-    map.removeLayer(tileParchment);
-    tileLayer.addTo(map).bringToBack();
-    document.body.classList.remove('parchment');
-    if (btn) btn.textContent = '🗺️ Parchemin';
+  if (btn) {
+    const nxt = nextBasemap();
+    btn.textContent = BASEMAP_LABEL[nxt];
+    btn.title = 'Fond affiché : ' + BASEMAP_LABEL[name].replace(/^\S+\s/, '') + ' — cliquer pour passer en ' +
+                BASEMAP_LABEL[nxt].replace(/^\S+\s/, '');
   }
+
+  renderAll();   // les royaumes et lieux se reprojettent dans le nouvel espace
   try { localStorage.setItem('worldmap.basemap', name); } catch (e) {}
 }
 
@@ -530,7 +690,7 @@ function hideHint() { document.getElementById('hint').classList.add('hidden'); }
 
 /* -------------------- UI bindings -------------------- */
 function bindUI() {
-  document.getElementById('btnBasemap').onclick = () => setBasemap(basemap === 'satellite' ? 'parchment' : 'satellite');
+  document.getElementById('btnBasemap').onclick = () => setBasemap(nextBasemap());
   document.getElementById('btnEdit').onclick = () => setEditMode(!editMode);
   document.getElementById('btnAddKingdom').onclick = startDrawKingdom;
   document.getElementById('btnAddPlace').onclick = startAddPlace;
