@@ -20,7 +20,7 @@ window.MAP_CONFIG = {
   unlockMinutes: 240,
 
   // --- Carte isométrique Dynmap (servie en direct par le serveur Minecraft) ---
-  // URL publique HTTPS du Dynmap (tunnel Tailscale Funnel), sans slash final.
+  // URL publique HTTPS du Dynmap (tunnel Cloudflare), sans slash final.
   // Vide = le bouton de fond ne propose que satellite / parchemin.
   dynmapUrl: "https://mc.ushthepup.fr",
 };
