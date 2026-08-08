@@ -274,7 +274,7 @@ async function init() {
   // Restaure le fond de carte choisi précédemment
   try {
     const saved = localStorage.getItem('worldmap.basemap');
-    if (saved && saved !== 'satellite' && basemapCycle().includes(saved)) setBasemap(saved);
+    if (saved && saved !== 'satellite' && basemapsDisponibles().includes(saved)) setBasemap(saved);
   } catch (e) {}
 
   // Lecture des coordonnées
@@ -482,22 +482,23 @@ function setStatus(txt) {
 }
 
 /* -------------------- Fond de carte (satellite / parchemin / iso) -------------------- */
-const BASEMAP_LABEL = {
-  satellite: '🛰️ Satellite',
-  parchment: '🗺️ Parchemin',
-  iso: '⛰️ Isométrique',
-};
-// Fonds proposés par le bouton (l'iso n'apparaît que si dynmapUrl est configurée)
-function basemapCycle() {
+// Fonds disponibles (l'iso n'apparaît que si dynmapUrl est configurée)
+function basemapsDisponibles() {
   return ['satellite', 'parchment'].concat(tileIso ? ['iso'] : []);
 }
-function nextBasemap() {
-  const cyc = basemapCycle();
-  return cyc[(cyc.indexOf(basemap) + 1) % cyc.length];
+// Met à jour l'état visuel des 3 boutons de sélection
+function majBoutonsBasemap() {
+  const dispo = basemapsDisponibles();
+  document.querySelectorAll('#basemapGroup .seg').forEach(btn => {
+    const nom = btn.dataset.basemap;
+    btn.classList.toggle('active', nom === basemap);
+    btn.classList.toggle('hidden', !dispo.includes(nom));
+  });
 }
 
 function setBasemap(name) {
   if (name === 'iso' && !tileIso) name = 'satellite';
+  if (name === basemap && map.hasLayer(name === 'iso' ? tileIso : (name === 'parchment' ? tileParchment : tileLayer))) return;
   const from = basemap;
   const keepZoom = map.getZoom();
   // On retient la position courante en pixels image : les deux fonds n'ont pas
@@ -522,13 +523,7 @@ function setBasemap(name) {
   map.setView(pxToLatLng(keep[0], keep[1]), z, { animate: false });
   map.setMaxBounds(worldBounds.pad(0.35));
 
-  const btn = document.getElementById('btnBasemap');
-  if (btn) {
-    const nxt = nextBasemap();
-    btn.textContent = BASEMAP_LABEL[nxt];
-    btn.title = 'Fond affiché : ' + BASEMAP_LABEL[name].replace(/^\S+\s/, '') + ' — cliquer pour passer en ' +
-                BASEMAP_LABEL[nxt].replace(/^\S+\s/, '');
-  }
+  majBoutonsBasemap();
 
   renderAll();   // les royaumes et lieux se reprojettent dans le nouvel espace
   try { localStorage.setItem('worldmap.basemap', name); } catch (e) {}
@@ -712,7 +707,10 @@ function hideHint() { document.getElementById('hint').classList.add('hidden'); }
 
 /* -------------------- UI bindings -------------------- */
 function bindUI() {
-  document.getElementById('btnBasemap').onclick = () => setBasemap(nextBasemap());
+  document.querySelectorAll('#basemapGroup .seg').forEach(btn => {
+    btn.onclick = () => setBasemap(btn.dataset.basemap);
+  });
+  majBoutonsBasemap();
   document.getElementById('btnEdit').onclick = () => setEditMode(!editMode);
   document.getElementById('btnAddKingdom').onclick = startDrawKingdom;
   document.getElementById('btnAddPlace').onclick = startAddPlace;

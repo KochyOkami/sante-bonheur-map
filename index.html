@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Carte du Monde — Explorateur</title>
   <link rel="stylesheet" href="vendor/leaflet.css" />
-  <link rel="stylesheet" href="css/style.css?v=9" />
+  <link rel="stylesheet" href="css/style.css?v=10" />
 </head>
 <body>
   <div id="app">
@@ -55,7 +55,12 @@
 
     <!-- Barre d'outils éditeur -->
     <div id="toolbar">
-      <button id="btnBasemap" class="tool" title="Changer de fond : satellite, parchemin, isométrique">🗺️ Parchemin</button>
+      <!-- Choix du fond : 3 boutons cote a cote, celui du fond actif est mis en avant -->
+      <div class="tool-group segmented" id="basemapGroup">
+        <button class="tool seg" data-basemap="satellite" title="Fond satellite (vue du dessus)">🛰️ Satellite</button>
+        <button class="tool seg" data-basemap="parchment" title="Fond parchemin (carte dessinée)">🗺️ Parchemin</button>
+        <button class="tool seg" data-basemap="iso" title="Fond isométrique (rendu Dynmap en direct)">⛰️ Isométrique</button>
+      </div>
       <button id="btnEdit" class="tool" title="Activer/désactiver le mode éditeur">✏️ Mode éditeur</button>
       <div class="tool-group hidden" id="editTools">
         <button id="btnAddKingdom" class="tool" title="Dessiner une zone de royaume">➕ Royaume</button>
@@ -88,8 +93,8 @@
   <script src="vendor/leaflet.js"></script>
   <!-- Supabase (édition partagée en ligne). Échoue silencieusement hors-ligne -> mode local. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=9"></script>
-  <script src="js/db.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/config.js?v=10"></script>
+  <script src="js/db.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>

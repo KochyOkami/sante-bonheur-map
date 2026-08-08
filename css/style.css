@@ -107,6 +107,10 @@ body {
 .tool.primary { background: var(--ok); border-color: var(--ok); color: #06231a; }
 .tool.danger { background: var(--danger); border-color: var(--danger); }
 .tool-group { display: flex; gap: 8px; background: rgba(15,17,21,.6); padding: 6px; border-radius: 12px; }
+/* Sélecteur de fond : 3 boutons accolés, celui du fond actif est mis en avant */
+.tool-group.segmented { gap: 4px; }
+.tool-group.segmented .seg { padding: 8px 12px; }
+.tool-group.segmented .seg.active { background: var(--accent-2); border-color: var(--accent); font-weight: 600; }
 .tool-group.hidden, .tool.hidden, .hidden { display: none !important; }
 
 /* ---------- Edit panel ---------- */
