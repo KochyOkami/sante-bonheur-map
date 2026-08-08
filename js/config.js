@@ -21,6 +21,8 @@ window.MAP_CONFIG = {
 
   // --- Carte isométrique Dynmap (servie en direct par le serveur Minecraft) ---
   // URL publique HTTPS du Dynmap (tunnel Cloudflare), sans slash final.
+  // Monte sous /dynmap/ et pas a la racine : le site a deja ses propres
+  // tuiles sous /tiles/ (fond satellite), les deux entreraient en collision.
   // Vide = le bouton de fond ne propose que satellite / parchemin.
-  dynmapUrl: "https://mc.ushthepup.fr",
+  dynmapUrl: "https://mc.ushthepup.fr/dynmap",
 };
