@@ -148,10 +148,14 @@ body {
 }
 .kingdom-label span { color: inherit; }
 .kingdom-label::before { display: none; }
-/* Mode parchemin : fond crème hors-carte + halo adapté */
-body.parchment .leaflet-container { background: #f0e8da; }
-/* Mode isométrique : fond noir, comme le client Dynmap */
-body.iso .leaflet-container { background: #000; }
+/* Fond hors-carte selon le mode.
+   ATTENTION : il faut viser #map explicitement. Le conteneur Leaflet EST
+   #map, et la règle « #map { background: #000 } » plus haut est un
+   sélecteur d'ID : elle l'emporte sur un simple « .leaflet-container ».
+   Sans ça le fond crème ne s'appliquait pas, et le remplissage crème des
+   tuiles de bord ressortait comme un bloc blanc sur le noir au dézoom. */
+body.parchment #map, body.parchment .leaflet-container { background: #f0e8da; }
+body.iso #map, body.iso .leaflet-container { background: #000; }
 
 /* Poignées d'édition des sommets */
 .vhandle {
