@@ -214,6 +214,10 @@ async function init() {
       bounds: L.latLngBounds(isoCorners),
       errorTileUrl: blackTile,     // zones non rendues : Dynmap renvoie 404
       keepBuffer: 4,
+      // La protection anti-hotlink de Cloudflare renvoie 403 (error code 1011)
+      // dès qu'une image porte un Referer d'un autre domaine. Sans Referer,
+      // elle laisse passer : on n'en envoie donc aucun.
+      referrerPolicy: 'no-referrer',
     });
   }
 
